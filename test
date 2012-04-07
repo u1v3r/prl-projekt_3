@@ -1,0 +1,17 @@
+#!/bin/bash
+
+if [ $# -lt 1 ];then
+    steps=4;
+else
+    steps=$1;
+fi;
+
+procesors=`cat lattice | grep '[^ ]' | wc -l`
+cols=`cat lattice | wc -L`
+
+#mpicc --prefix /usr/local/share/OpenMPI -o ca ca.c #>/dev/null 2>&1		 #preklad zdrojaku
+mpicc -o ca ca.c #>/dev/null 2>&1				 #preklad zdrojaku
+
+mpirun -np $procesors ca -c $cols
+#mpirun --prefix /usr/local/share/OpenMPI -np $procesors ca 	 		 #spusteni
+rm -f ca					 #uklid
