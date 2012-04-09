@@ -12,6 +12,6 @@ cols=`cat lattice | wc -L`
 #mpicc --prefix /usr/local/share/OpenMPI -o ca ca.c #>/dev/null 2>&1		 #preklad zdrojaku
 mpicc -o ca ca.c #>/dev/null 2>&1				 #preklad zdrojaku
 
-mpirun -np $procesors ca -c $cols
+mpirun -np $procesors ca -c $cols -s $steps | sort -g
 #mpirun --prefix /usr/local/share/OpenMPI -np $procesors ca 	 		 #spusteni
 rm -f ca					 #uklid
