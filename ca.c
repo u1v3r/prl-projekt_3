@@ -4,15 +4,12 @@
 #include <getopt.h>
 
 #define FILENAME "lattice"
-//#define DEBUG 1
 #define TAG 0
+#define TEST 1
 
-/* vypocita nasledujucu interaciu */
-void play(int *line,int *up_line,int *down_line,int cols,int rows,int myid,int *result_line);
 /* vypise riadok na vystup */
 void print_row(int *line,int length);
 inline int calculate_cell(int *line,int *up_line,int *down_line,int cols,int i);
-inline void send_value(int value);
 void swap_pointers(int **a,int **b);
 
 int myid;                   /* id procesora */
@@ -34,7 +31,9 @@ int main(int argc, char *argv[]){
     int index_down = 0;
     int i = 0;
     int j = 0;
-
+    #ifdef TEST
+    double start_time;
+    #endif
      /* z paremetru ziskaj pocet stlpcov */
     while((opt = getopt(argc, argv, "c:s:")) != -1) {
             if(opt == 'c'){
@@ -50,6 +49,9 @@ int main(int argc, char *argv[]){
     MPI_Comm_size(MPI_COMM_WORLD, &lines_count);    /* zisti kolko procesov bezi */
     MPI_Comm_rank(MPI_COMM_WORLD, &myid);           /* zisti id svojho procesu */
 
+    #ifdef TEST
+    start_time = MPI_Wtime();
+    #endif
 
     line = (int *)malloc(cols * sizeof(int));
     up_line = (int *)malloc(cols * sizeof(int));
@@ -63,7 +65,6 @@ int main(int argc, char *argv[]){
         fprintf(stderr,"line mallock error\n");
         return 1;
     }
-
 
     f = fopen(FILENAME,"r");
     fseek(f,(cols+1)*myid,SEEK_SET);/* zacni citat od myid riadka */
@@ -137,7 +138,7 @@ int main(int argc, char *argv[]){
             }
 
             /* obidve hodnoty su odoslane */
-            MPI_Wait(&req,&stat);
+            //MPI_Wait(&req,&stat);
         }
 
         //MPI_Barrier(MPI_COMM_WORLD);/* treba pockat na dopocitanie hodnot */
@@ -148,8 +149,14 @@ int main(int argc, char *argv[]){
         swap_pointers(&down_line,&down_line_tmp);
     }
 
+    //printf("%d: Elapsed time: %f\n",myid,(MPI_Wtime() - start_time));
+    #ifndef TEST
     print_row(line,cols);
+    #endif
 
+    #ifdef TEST
+    printf("%f\n",(MPI_Wtime() - start_time));
+    #endif
     MPI_Finalize();
     return 0;
 }
@@ -158,23 +165,6 @@ void swap_pointers(int **a,int **b){
     int *tmp_line = *a;
     *a = *b;
     *b = tmp_line;
-}
-
-inline void send_value(int value){
-
-    MPI_Request req;
-
-    /* ak je posledny tak dalej neposielaj */
-    if(myid != (lines_count - 1)){
-        MPI_Isend(&value, 1, MPI_INT, (myid + 1), TAG, MPI_COMM_WORLD,&req);
-    }
-    /* ak je prvy tak neposiela na prechadzajuci */
-    if(myid > 0){
-        MPI_Isend(&value, 1, MPI_INT, (myid - 1), TAG, MPI_COMM_WORLD,&req);
-    }
-
-    /* obidve hodnoty su odoslane */
-    MPI_Wait(&req,&stat);
 }
 
 inline int calculate_cell(int *line,int *up_line,int *down_line,int cols,int i){
@@ -278,8 +268,6 @@ inline int calculate_cell(int *line,int *up_line,int *down_line,int cols,int i){
             if(counter == 3) value = 1;/*Každá mrtvá buňka s právě třemi živými sousedy ožívá.*/
             //else value = 0;
         }
-
-        //printf("row:%d cell:%d value:%d counter:%d\n",myid,i,value,counter);
 
         return value;
 }
