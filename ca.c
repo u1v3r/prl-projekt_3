@@ -5,7 +5,7 @@
 
 #define FILENAME "lattice"
 #define TAG 0
-//#define TEST 1
+#define TEST 1
 
 /* vypise riadok na vystup */
 void print_row(int *line,int length);
@@ -58,8 +58,6 @@ int main(int argc, char *argv[]){
     up_line = (int *)calloc(cols , sizeof(int));
     down_line = (int *)calloc(cols ,  sizeof(int));
     result_line = (int *)calloc(cols , sizeof(int));
-    up_line_tmp = (int *)calloc(cols ,  sizeof(int));
-    down_line_tmp = (int *)calloc(cols , sizeof(int));
 
     if(line == NULL || up_line == NULL || down_line == NULL ||
         result_line == NULL){
@@ -68,7 +66,7 @@ int main(int argc, char *argv[]){
     }
 
     f = fopen(FILENAME,"r");
-    fseek(f,(cols+1)*myid,SEEK_SET);/* zacni citat od myid riadka */
+    fseek(f,(cols + 1)*myid,SEEK_SET);/* zacni citat od myid riadka */
 
     int c;
     while((c = fgetc(f)) != '\n'){
@@ -77,87 +75,71 @@ int main(int argc, char *argv[]){
         char_int = c - '0';/* prevod char -> int */
 
         line[i++] = char_int;
-
-
-        /* ak je iba jeden riadok, tak netreba nikam posielat */
-        if(lines_count > 1){
-
-             MPI_Request req;
-
-            /* ak je posledny tak dalej neposielaj */
-            if(myid != (lines_count - 1)){
-                MPI_Isend(&char_int, 1, MPI_INT, (myid + 1), TAG, MPI_COMM_WORLD,&req);
-            }
-            /* ak je prvy tak neposiela na prechadzajuci */
-            if(myid > 0){
-                MPI_Isend(&char_int, 1, MPI_INT, (myid - 1), TAG, MPI_COMM_WORLD,&req);
-
-            }
-
-            /* obidve hodnoty su odoslane */
-
-
-            /* prvy neprijima od predchadzajuceho */
-            if(myid != 0){
-                MPI_Recv(&up_line[index_up++],1,MPI_INT,myid-1,TAG,MPI_COMM_WORLD,&stat);
-            }
-
-            /* posledny neprjima od nasledujuceho */
-            if(myid != (lines_count - 1)){
-                MPI_Recv(&down_line[index_down++],1,MPI_INT,myid+1,TAG,MPI_COMM_WORLD,&stat);
-            }
-
-            //MPI_Wait(&req,&stat);
-        }
-
-
-    };
+    }
 
     fclose(f);
+
+    MPI_Request req;
+
+    /* ak je posledny tak dalej neposielaj */
+    if(myid != (lines_count - 1)){
+        MPI_Isend(line,cols,MPI_INT,myid+1,TAG,MPI_COMM_WORLD,&req);
+    }
+
+    /* ak je prvy tak neposiela na prechadzajuci */
+    if(myid > 0){
+        MPI_Isend(line, cols, MPI_INT, (myid - 1), TAG, MPI_COMM_WORLD,&req);
+    }
+
+    //MPI_Wait(&req,&stat);
+
+    /* prvy neprijima od predchadzajuceho */
+    if(myid != 0){
+        MPI_Recv(up_line,cols,MPI_INT,myid-1,TAG,MPI_COMM_WORLD,&stat);
+    }
+
+    /* posledny neprjima od nasledujuceho */
+    if(myid != (lines_count - 1)){
+        MPI_Recv(down_line,cols,MPI_INT,myid+1,TAG,MPI_COMM_WORLD,&stat);
+    }
 
     /* vypocet iteracii hry */
     for(i = 0; i < reapeat; i++){
         for(j = 0; j < cols; j++){
             result_line[j] = calculate_cell(line,up_line,down_line,cols,j);
-
-            if( lines_count > 1){
-                MPI_Request req;
-
-                /* ak je posledny tak dalej neposielaj */
-                if(myid != (lines_count - 1)){
-                    MPI_Isend(&result_line[j], 1, MPI_INT, (myid + 1), TAG, MPI_COMM_WORLD,&req);
-                }
-
-                /* ak je prvy tak neposiela na prechadzajuci */
-                if(myid > 0){
-                    MPI_Isend(&result_line[j], 1, MPI_INT, (myid - 1), TAG, MPI_COMM_WORLD,&req);
-                }
-
-                //send_value(result_line[j]);
-                /* prvy neprijima od predchadzajuceho */
-                if(myid != 0){
-                    MPI_Recv(&up_line_tmp[j],1,MPI_INT,myid-1,TAG,MPI_COMM_WORLD,&stat);
-                }
-
-                /* posledny neprjima od nasledujuceho */
-                if(myid != (lines_count - 1)){
-                    MPI_Recv(&down_line_tmp[j],1,MPI_INT,myid+1,TAG,MPI_COMM_WORLD,&stat);
-                }
-            }
-
-            /* obidve hodnoty su odoslane */
-            //MPI_Wait(&req,&stat);
         }
 
-        //MPI_Barrier(MPI_COMM_WORLD);/* treba pockat na dopocitanie hodnot */
+
+        MPI_Request req;
+
+        /* ak je posledny tak dalej neposielaj */
+        if(myid != (lines_count - 1)){
+            MPI_Isend(result_line, cols, MPI_INT, (myid + 1), TAG, MPI_COMM_WORLD,&req);
+        }
+
+
+        /* ak je prvy tak neposiela na prechadzajuci */
+        if(myid > 0){
+            MPI_Isend(result_line, cols, MPI_INT, (myid - 1), TAG, MPI_COMM_WORLD,&req);
+        }
+
+        //MPI_Wait(&req,&stat);
+
+        /* prvy neprijima od predchadzajuceho */
+        if(myid != 0){
+            MPI_Recv(up_line,cols,MPI_INT,myid-1,TAG,MPI_COMM_WORLD,&stat);
+        }
+
+        /* posledny neprjima od nasledujuceho */
+        if(myid != (lines_count - 1)){
+            MPI_Recv(down_line,cols,MPI_INT,myid+1,TAG,MPI_COMM_WORLD,&stat);
+        }
+
         /* v dalsom kole bude pocitat s vysledkom */
         swap_pointers(&result_line,&line);
-        /* zamena tmp*/
-        swap_pointers(&up_line,&up_line_tmp);
-        swap_pointers(&down_line,&down_line_tmp);
     }
 
-    //printf("%d: Elapsed time: %f\n",myid,(MPI_Wtime() - start_time));
+
     #ifndef TEST
     print_row(line,cols);
     #endif
@@ -265,8 +247,6 @@ inline int calculate_cell(int *line,int *up_line,int *down_line,int cols,int i){
             if(line[i-1]) counter++;/* vlavo */
 
         }
-
-        printf("stlpec: %d, counter: %d\n",i,counter);
 
         /* je ziva */
         if(line[i]){
