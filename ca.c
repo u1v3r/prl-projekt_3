@@ -5,7 +5,7 @@
 
 #define FILENAME "lattice"
 #define TAG 0
-#define TEST 1
+//#define TEST 1
 
 /* vypise riadok na vystup */
 void print_row(int *line,int length);
@@ -53,12 +53,13 @@ int main(int argc, char *argv[]){
     start_time = MPI_Wtime();
     #endif
 
-    line = (int *)malloc(cols * sizeof(int));
-    up_line = (int *)malloc(cols * sizeof(int));
-    down_line = (int *)malloc(cols * sizeof(int));
-    result_line = (int *)malloc(cols * sizeof(int));
-    up_line_tmp = (int *)malloc(cols * sizeof(int));
-    down_line_tmp = (int *)malloc(cols * sizeof(int));
+    /* callock alokuje vsetko na 0, co sa hodi pri jednoriadkovej matici */
+    line = (int *)calloc(cols , sizeof(int));
+    up_line = (int *)calloc(cols , sizeof(int));
+    down_line = (int *)calloc(cols ,  sizeof(int));
+    result_line = (int *)calloc(cols , sizeof(int));
+    up_line_tmp = (int *)calloc(cols ,  sizeof(int));
+    down_line_tmp = (int *)calloc(cols , sizeof(int));
 
     if(line == NULL || up_line == NULL || down_line == NULL ||
         result_line == NULL){
@@ -77,6 +78,8 @@ int main(int argc, char *argv[]){
 
         line[i++] = char_int;
 
+
+        /* ak je iba jeden riadok, tak netreba nikam posielat */
         if(lines_count > 1){
 
              MPI_Request req;
@@ -88,6 +91,7 @@ int main(int argc, char *argv[]){
             /* ak je prvy tak neposiela na prechadzajuci */
             if(myid > 0){
                 MPI_Isend(&char_int, 1, MPI_INT, (myid - 1), TAG, MPI_COMM_WORLD,&req);
+
             }
 
             /* obidve hodnoty su odoslane */
@@ -103,8 +107,10 @@ int main(int argc, char *argv[]){
                 MPI_Recv(&down_line[index_down++],1,MPI_INT,myid+1,TAG,MPI_COMM_WORLD,&stat);
             }
 
-            MPI_Wait(&req,&stat);
+            //MPI_Wait(&req,&stat);
         }
+
+
     };
 
     fclose(f);
@@ -114,27 +120,29 @@ int main(int argc, char *argv[]){
         for(j = 0; j < cols; j++){
             result_line[j] = calculate_cell(line,up_line,down_line,cols,j);
 
-            MPI_Request req;
+            if( lines_count > 1){
+                MPI_Request req;
 
-            /* ak je posledny tak dalej neposielaj */
-            if(myid != (lines_count - 1)){
-                MPI_Isend(&result_line[j], 1, MPI_INT, (myid + 1), TAG, MPI_COMM_WORLD,&req);
-            }
+                /* ak je posledny tak dalej neposielaj */
+                if(myid != (lines_count - 1)){
+                    MPI_Isend(&result_line[j], 1, MPI_INT, (myid + 1), TAG, MPI_COMM_WORLD,&req);
+                }
 
-            /* ak je prvy tak neposiela na prechadzajuci */
-            if(myid > 0){
-                MPI_Isend(&result_line[j], 1, MPI_INT, (myid - 1), TAG, MPI_COMM_WORLD,&req);
-            }
+                /* ak je prvy tak neposiela na prechadzajuci */
+                if(myid > 0){
+                    MPI_Isend(&result_line[j], 1, MPI_INT, (myid - 1), TAG, MPI_COMM_WORLD,&req);
+                }
 
-            //send_value(result_line[j]);
-            /* prvy neprijima od predchadzajuceho */
-            if(myid != 0){
-                MPI_Recv(&up_line_tmp[j],1,MPI_INT,myid-1,TAG,MPI_COMM_WORLD,&stat);
-            }
+                //send_value(result_line[j]);
+                /* prvy neprijima od predchadzajuceho */
+                if(myid != 0){
+                    MPI_Recv(&up_line_tmp[j],1,MPI_INT,myid-1,TAG,MPI_COMM_WORLD,&stat);
+                }
 
-            /* posledny neprjima od nasledujuceho */
-            if(myid != (lines_count - 1)){
-                MPI_Recv(&down_line_tmp[j],1,MPI_INT,myid+1,TAG,MPI_COMM_WORLD,&stat);
+                /* posledny neprjima od nasledujuceho */
+                if(myid != (lines_count - 1)){
+                    MPI_Recv(&down_line_tmp[j],1,MPI_INT,myid+1,TAG,MPI_COMM_WORLD,&stat);
+                }
             }
 
             /* obidve hodnoty su odoslane */
@@ -171,6 +179,7 @@ inline int calculate_cell(int *line,int *up_line,int *down_line,int cols,int i){
 
         int value = line[i];
         int counter = 0;
+
 
         /* okrajove hodnoty matice */
         if( myid == 0 || i == 0 || myid == (lines_count - 1) || i == (cols - 1)) {
@@ -215,7 +224,7 @@ inline int calculate_cell(int *line,int *up_line,int *down_line,int cols,int i){
             }
 
             /* prvy riadok prvy stlpec */
-            if(myid == 0 && i == 0){
+            if(myid == 0 && i == 0 && cols > 1){
                 if(down_line[i]) counter++;/*hodnota dole*/
                 if(down_line[i+1]) counter++;/*vpravo dole */
                 if(line[i+1]) counter++;/* vpravo */
@@ -229,14 +238,14 @@ inline int calculate_cell(int *line,int *up_line,int *down_line,int cols,int i){
             }
 
             /* posledny riadok prvy stlpec */
-            if(myid == (lines_count - 1) && i == 0){
+            if(myid == (lines_count - 1) && i == 0 && lines_count > 1 && cols > 1){
                 if(up_line[i]) counter++;/*hodnota hore*/
                 if(up_line[i+1]) counter++;/*vpravo dole */
                 if(line[i+1]) counter++;/* vpravo */
             }
 
             /* posledny riadok posledny stlpec */
-            if(myid == (lines_count - 1) && i == (cols - 1)){
+            if(myid == (lines_count - 1) && i == (cols - 1) && lines_count > 1){
                 if(line[i-1]) counter++;/* vlavo */
                 if(up_line[i-1]) counter++;/*vlavo hore */
                 if(up_line[i]) counter++;/*hodnota hore*/
@@ -256,6 +265,8 @@ inline int calculate_cell(int *line,int *up_line,int *down_line,int cols,int i){
             if(line[i-1]) counter++;/* vlavo */
 
         }
+
+        printf("stlpec: %d, counter: %d\n",i,counter);
 
         /* je ziva */
         if(line[i]){
