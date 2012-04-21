@@ -12,7 +12,7 @@ sum_time=0
 rm -f ./times.out
 
 #Ziska seznam vstupu
-cd IN
+cd IN_TEST
 names=`ls lattice_*.in`
 cd ..
 
@@ -20,7 +20,7 @@ cd ..
 for name in $names
 do
 	#Kopie do lattice
-	cp IN/$name lattice
+	cp IN_TEST/$name lattice
 	echo "------------------------------------------"
 	echo $name
 	#Vystupni soubor
